@@ -49,113 +49,90 @@ fetchLocationAndTime();
 // ===================================================================================== //
 
 document.addEventListener("DOMContentLoaded", () => {
-const container = document.getElementById("vessel-data-container");
+    const container = document.getElementById("vessel-data-container");
 
-// Function to fetch vessel data from multiple APIs
-async function fetchVesselData() {
-try {
-    const urls = [
-        "https://app.greenhyla.com/auth/api/get-vessel-histories",
-        "https://hyla.greenhyla.com/auth/api/get-vessel-histories"
-    ];
+    // Function to fetch vessel data from multiple APIs
+    async function fetchVesselData() {
+        try {
+            const urls = [
+                "https://app.greenhyla.com/auth/api/get-vessel-histories",
+                "https://hyla.greenhyla.com/auth/api/get-vessel-histories"
+            ];
 
-    // Fetch data from both APIs concurrently
-    const responses = await Promise.all(urls.map(url => fetch(url)));
-    const dataArrays = await Promise.all(responses.map(res => res.json()));
+            // Fetch data from both APIs concurrently
+            const responses = await Promise.all(urls.map(url => fetch(url)));
+            const dataArrays = await Promise.all(responses.map(res => res.json()));
 
-    // Combine data from both APIs into a single array
-    const combinedData = dataArrays.flat();
+            // Combine data from both APIs into a single array
+            const combinedData = dataArrays.flat();
 
-    // Filter out vessels where geofenceName or geofenceFlag is null or undefined
-    const filteredData = combinedData.filter(vessel => 
-        vessel.history?.[0]?.geofenceName && vessel.history?.[0]?.geofenceFlag
-    );
+            // Filter out vessels where geofenceName or geofenceFlag is null or undefined
+            const filteredData = combinedData.filter(vessel => 
+                vessel.history?.[0]?.geofenceName && vessel.history?.[0]?.geofenceFlag
+            );
 
-    // Remove duplicate vessels based on IMO (unique identifier)
-    const uniqueVessels = [];
-    const seen = new Set();
+            // Remove duplicate vessels based on IMO (unique identifier)
+            const uniqueVessels = [];
+            const seen = new Set();
 
-    filteredData.forEach(vessel => {
-        if (!seen.has(vessel.IMO)) {
-            seen.add(vessel.IMO);
-            uniqueVessels.push(vessel);
+            filteredData.forEach(vessel => {
+                if (!seen.has(vessel.IMO)) {
+                    seen.add(vessel.IMO);
+                    uniqueVessels.push(vessel);
+                }
+            });
+
+            // Combine multiple vessel alerts into a single line
+            const vesselAlerts = uniqueVessels.map(vessel => {
+                const history = vessel.history[0]; // Get the first history record
+                return `🚢 <strong>${vessel.vesselName}</strong> @ ${history.geofenceName}`;
+            }).join(" &nbsp;&nbsp; | &nbsp;&nbsp; "); // Separator
+
+            // Populate the ticker container
+            container.innerHTML = `<span>${vesselAlerts}</span>`;
+
+            // Adjust scrolling speed after loading content
+            adjustScrollingSpeed();
+
+        } catch (error) {
+            console.error("Error fetching vessel data:", error);
+            container.innerHTML = "<span>⚠️ Unable to fetch vessel data. Please try again later.</span>";
         }
-    });
+    }
 
-    // Combine multiple vessel alerts into a single line
-    const vesselAlerts = uniqueVessels.map(vessel => {
-        const history = vessel.history[0]; // Get the first history record
-        return `🚢 <strong>${vessel.vesselName}</strong> @ ${history.geofenceName}`;
-    }).join(" &nbsp;&nbsp; | &nbsp;&nbsp; "); // Separator
+    // Function to adjust scroll speed dynamically
+    function adjustScrollingSpeed() {
+        const tickerWrapper = document.querySelector('.ticker-wrapper');
+        const contentWidth = tickerWrapper.scrollWidth;
+        const viewportWidth = window.innerWidth;
 
-    // Populate the ticker container
-    container.innerHTML = `<span>${vesselAlerts}</span>`;
+        // Fixed slow scrolling duration calculation
+        const baseDuration = 60; // Base duration for one full scroll (in seconds)
+        const duration = Math.max(baseDuration, (contentWidth / viewportWidth) * baseDuration);
 
-    // Adjust scrolling speed after loading content
-    adjustScrollingSpeed();
+        // Apply dynamic animation duration
+        tickerWrapper.style.animation = `scroll-ticker ${duration}s linear infinite`;
+    }
 
-} catch (error) {
-    console.error("Error fetching vessel data:", error);
-    container.innerHTML = "<span>⚠️ Unable to fetch vessel data. Please try again later.</span>";
-}
-}
-
-// Function to adjust scroll speed dynamically
-function adjustScrollingSpeed() {
-const tickerWrapper = document.querySelector('.ticker-wrapper');
-const containerWidth = document.querySelector('.ticker-content').offsetWidth;
-const contentWidth = tickerWrapper.scrollWidth;
-
-// Calculate a proportional duration: longer content = slower scroll
-const baseDuration = 30; // Base duration (in seconds) for one full container width
-const duration = Math.max(baseDuration, contentWidth / containerWidth * baseDuration);
-
-// Apply dynamic animation duration
-tickerWrapper.style.animation = `scroll-ticker ${duration}s linear infinite`;
-}
-
-// Initial call and refresh every 10 seconds
-fetchVesselData();
-setInterval(fetchVesselData, 10000); // Refresh every 10 seconds
+    // Initial call and refresh every 10 seconds
+    fetchVesselData();
+    setInterval(fetchVesselData, 300000); // Refresh every 10 seconds
 });
 
+// Additional restrictions (optional, to prevent user interaction)
 (function() {
-    // Disable right-click (context menu)
     document.addEventListener('contextmenu', function(e) {
         e.preventDefault();
     });
 
-    // Disable F12 key (Developer Tools)
     document.addEventListener('keydown', function(e) {
-        if (e.keyCode === 123) {  // F12 key
+        if (e.keyCode === 123 || (e.ctrlKey && e.key === 'u')) { // F12 or Ctrl+U
             e.preventDefault();
-        }
-
-        // Disable Ctrl+U (View Source on Windows)
-        if (e.ctrlKey && e.key === 'u') {
-            e.preventDefault();
-            alert('Viewing source is disabled!');
+            alert('This action is disabled.');
         }
     });
 
-    // Detect if developer tools are open (both Desktop and Mobile)
-    var devtools = /./;
-    devtools.toString = function() {
-        this.open = true;
-    };
-    setInterval(function() {
-        if (devtools.open) {
-            alert('Developer tools are open!');
-            // You can redirect or take any action you like here
-        }
-    }, 1000);
-
-    // Disable text selection (discourages inspecting elements)
     document.body.style.userSelect = 'none';
 
-    // Override console methods (blocks access to the console)
-    console.log = function() {};
-    console.warn = function() {};
-    console.error = function() {};
-
+    console.log = console.warn = console.error = () => {};
 })();
